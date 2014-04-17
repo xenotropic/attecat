@@ -28,7 +28,9 @@ TO-DO LIST
 ==========
 
 There is currently no way to edit or delete daily records. Create such a method.
+
 There is currently no way to edit or delete students, or to add an individual student. Create such methods.
+
 Ensure sessions persist for a longer period of time.
 
 
