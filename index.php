@@ -114,7 +114,7 @@ if ($_POST['newstudents'] == "Submit") {
   $array_size = count ($student_array);
   for ( $i = 0; $i < $array_size; $i++ ) {
     $statement = $db->prepare ('INSERT INTO student (student_name, current_section, current_student ) VALUES (:name, :section, 1)');
-    $statement->bindValue (':name', $student_array[$i], SQLITE3_TEXT);
+    $statement->bindValue (':name', trim ($student_array[$i]), SQLITE3_TEXT);
     $statement->bindValue (':section', $section, SQLITE3_TEXT);
     $status = $statement->execute();
     if ( get_class ($status) == "SQLite3Result"  ) $tab1message = "Group for $section added.";
@@ -185,7 +185,7 @@ if ($_POST['before_after_submit']=="Submit") {
 Select <? if ( $_GET['section'] != "" ) echo "another" ?> section:
  <select name="section" onchange='this.form.submit()'>
 <? 
-$results = $db->query('SELECT DISTINCT current_section FROM student WHERE current_student=1');
+$results = $db->query('SELECT DISTINCT current_section FROM student WHERE current_student=1 ORDER BY student_name');
 
 if ( $_GET['section'] == NULL ) echo "<option value=\"\" selected> </option>";
 
@@ -224,7 +224,7 @@ if ($_GET['section']!="") {
   echo "<div class=\"RoundTable\"><table><form onkeypress=\"return event.keyCode != 13;\" action=\"./?section=".$_GET['section']."\" method=post><tr><td><b>Student Name</b></td><td colspan=2>New Attendance for <input type=text name=new_date id=\"datepicker\" value=\"". date ( "m/d/y" ) ."\"></td>";
   foreach ( $date_array as $date ) echo ("<td>" . date ( "D. M. j", strtotime($date)) . "</td>" );
   echo "</tr>";
-  $statement = $db->prepare('SELECT student_name, notes, student_id FROM student WHERE current_section=:section AND current_student=1');
+  $statement = $db->prepare('SELECT student_name, notes, student_id FROM student WHERE current_section=:section AND current_student=1 ORDER BY student_name ASC');
   $statement->bindValue (':section', $_GET['section']);
   $results = $statement->execute();
   $studentlist = "";
@@ -314,8 +314,33 @@ if (is_numeric($_GET['showid'])) {
   $statement->bindValue (':student_id', $_GET['showid']);
   $results = $statement->execute();
   $row = $results->fetchArray(SQLITE3_ASSOC);
+
+  // get previous and next student, if any
+  $statement = $db->prepare('SELECT student_name, student_id FROM student WHERE current_section=:current_section AND current_student=1');
+  $statement->bindValue (':current_section', $row['current_section']);
+  $other_students_results = $statement->execute();
+  $other_students = $other_students_results ->fetchArray (SQLITE_ASSOC);
+  $prev_student; $next_student; $last_student; $found_selected = false;
+  while($res = $other_students_results->fetchArray(SQLITE3_ASSOC)){ 
+    if ( $found_selected ) {
+      $next_student = $res['student_id'];
+      break;
+    }
+    if ( $res['student_id']==$_GET['showid']) {
+      $prev_student = $last_student;
+      $found_selected = true;
+    }
+    $last_student = $res['student_id'];
+  }
+  
+  //  end getting of next/prev
+
   if ( $row != FALSE ) {
-    echo "<center><b>".$row['student_name']." in ".$row['current_section']."</b></center><p>";
+    echo "<center>";
+    if ( $prev_student != null ) echo "<a href=\"./?section=".$_GET['section']."&showid=".$prev_student."#tabs-3\">< Prev</a>&nbsp;&nbsp; ";
+    echo "<b>".$row['student_name']." in ".$row['current_section'] . " </b>";
+    if ( $next_student != null ) echo "&nbsp; &nbsp;<a href=\"./?section=".$_GET['section']."&showid=".$next_student."#tabs-3\">Next></a>";
+    echo "</center><p>";
   } else echo "No record found for student " . $_GET['showid'];
 
   $statement = $db->prepare('SELECT * FROM attendance_record WHERE student_id=:student_id');
